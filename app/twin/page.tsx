@@ -28,13 +28,18 @@ export default function TwinPage() {
       // Load Cesium from CDN
       await injectCesiumCDN()
 
-      if (cancelled || !window.Cesium) {
+      if (cancelled) return
+
+      // Load Cesium from CDN
+      await injectCesiumCDN()
+
+      const Cesium = (window as any).Cesium
+      if (!Cesium) {
         setError('Cesium failed to load from CDN')
         setLoading(false)
         return
       }
 
-      const Cesium = window.Cesium
       Cesium.Ion.defaultAccessToken =
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUxNy1mMWZiLTQzYjYtYTQ0OS1kMWFjYmFkNjc5YzciLCJpZCI6NTc3MzMsImlhdCI6MTYyNzg0NTE4Mn0.XcKpgANiY19MC4bdFUXMVEBToBmqS8kuYpUlxJHv1ew'
 
