@@ -2,15 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-type Lead = {
-  name: string
-  address?: string
-  phone?: string
-  category: string
-  area: string
-  source?: string
-}
-
 type Area = {
   area: string
   count: number
@@ -22,7 +13,44 @@ type Meta = {
   total: number
   areas: Area[]
   categories: string[]
-  leads: Lead[]
+}
+
+type AqiStation = {
+  type: 'aqi'
+  id?: string | null
+  name: string
+  nameTh?: string | null
+  lat: number
+  lng: number
+  aqi: number
+  pm25: number
+  pm25Value: number
+  aqiParam?: string | null
+  date?: string | null
+  time?: string | null
+}
+
+type WeatherStation = {
+  type: 'weather'
+  id?: string
+  name: string
+  nameTh?: string | null
+  lat: number
+  lng: number
+  temp?: number
+  humidity?: number
+  windSpeed?: number
+  windDir?: number
+  rainfall?: number
+}
+
+type ObservationResponse = {
+  ok: boolean
+  fetchedAt?: string
+  bkkStations: AqiStation[]
+  bkkWeather: WeatherStation[]
+  totalStations?: number
+  totalWeather?: number
 }
 
 export default function TwinPage() {
@@ -31,21 +59,33 @@ export default function TwinPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [meta, setMeta] = useState<Meta | null>(null)
+  const [observations, setObservations] = useState<ObservationResponse | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [search, setSearch] = useState('')
   const [panelOpen, setPanelOpen] = useState(false)
+  const [showAqi, setShowAqi] = useState(true)
+  const [showWeather, setShowWeather] = useState(true)
+  const [clock, setClock] = useState('')
 
   useEffect(() => {
     let cancelled = false
 
     const load = async () => {
       try {
-        const res = await fetch('/api/leads', { cache: 'no-store' })
-        const json = await res.json()
-        if (!json.ok) throw new Error(json.error || 'leads api failed')
-        if (!cancelled) setMeta(json)
+        const [leadsRes, obsRes] = await Promise.all([
+          fetch('/api/leads', { cache: 'no-store' }),
+          fetch('/api/observations', { cache: 'no-store' }),
+        ])
+        const leadsJson = await leadsRes.json()
+        const obsJson = await obsRes.json()
+        if (!leadsJson.ok) throw new Error(leadsJson.error || 'leads api failed')
+        if (!obsJson.ok) throw new Error(obsJson.error || 'observations api failed')
+        if (!cancelled) {
+          setMeta(leadsJson)
+          setObservations(obsJson)
+        }
       } catch (err: any) {
-        console.error('leads load error', err)
+        console.error('load error', err)
         if (!cancelled) setError(err?.message ?? 'unknown')
       }
     }
@@ -58,6 +98,18 @@ export default function TwinPage() {
         try { cesiumViewer.current.destroy() } catch {}
       }
     }
+  }, [])
+
+  useEffect(() => {
+    if (loading && !error) return
+    setLoading(false)
+  }, [meta, observations, error])
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setClock(new Date().toLocaleTimeString('th-TH'))
+    }, 1000)
+    return () => clearInterval(timer)
   }, [])
 
   useEffect(() => {
@@ -94,15 +146,14 @@ export default function TwinPage() {
       cesiumViewer.current = viewer
 
       viewer.camera.setView({
-        destination: Cesium.Cartesian3.fromDegrees(100.5168, 13.7546, 50000),
+        destination: Cesium.Cartesian3.fromDegrees(100.5268, 13.7546, 60000),
         orientation: {
           heading: Cesium.Math.toRadians(0),
-          pitch: Cesium.Math.toRadians(-50),
+          pitch: Cesium.Math.toRadians(-45),
           roll: 0,
         },
       })
 
-      // Load Cesium OSM Buildings for a city-like twin feel
       try {
         const osmBuildings = await Cesium.createOsmBuildingsAsync()
         viewer.scene.primitives.add(osmBuildings)
@@ -110,7 +161,8 @@ export default function TwinPage() {
         console.warn('OSM Buildings unavailable', osmErr)
       }
 
-      renderAreas(Cesium, viewer, meta?.areas ?? [])
+      renderAll(Cesium, viewer, meta, observations, showAqi, showWeather, selectedCategory)
+
       if (!cancelled) setLoading(false)
     }
 
@@ -122,14 +174,18 @@ export default function TwinPage() {
         try { cesiumViewer.current.destroy() } catch {}
       }
     }
-  }, [meta])
+  }, [meta, observations])
+
+  useEffect(() => {
+    if (!cesiumViewer.current || !meta || !observations) return
+    const Cesium = (window as any).Cesium
+    if (!Cesium) return
+    renderAll(Cesium, cesiumViewer.current, meta, observations, showAqi, showWeather, selectedCategory)
+  }, [showAqi, showWeather, selectedCategory, meta, observations])
 
   const filteredAreas = meta?.areas?.filter((area) => {
-    const matchesCategory = !selectedCategory || (meta.leads || []).some(
-      lead => lead.area === area.area && lead.category === selectedCategory
-    )
-    const matchesSearch = !search || 
-      area.area.toLowerCase().includes(search.toLowerCase())
+    const matchesCategory = !selectedCategory || (meta?.categories?.includes(selectedCategory) ?? false)
+    const matchesSearch = !search || area.area.toLowerCase().includes(search.toLowerCase())
     return matchesCategory && matchesSearch
   }) ?? []
 
@@ -164,6 +220,14 @@ export default function TwinPage() {
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
+            <label className="flex items-center gap-2 text-xs text-slate-300">
+              <input type="checkbox" checked={showAqi} onChange={(e) => setShowAqi(e.target.checked)} />
+              AQI
+            </label>
+            <label className="flex items-center gap-2 text-xs text-slate-300">
+              <input type="checkbox" checked={showWeather} onChange={(e) => setShowWeather(e.target.checked)} />
+              Weather
+            </label>
             <button
               onClick={() => setPanelOpen((v) => !v)}
               className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs hover:bg-white/10"
@@ -174,6 +238,7 @@ export default function TwinPage() {
               {totalFiltered}/{meta?.total ?? 0} รายการ
             </span>
           </div>
+          <div className="text-xs text-slate-400">{clock}</div>
         </div>
       </div>
 
@@ -190,7 +255,7 @@ export default function TwinPage() {
       {panelOpen && (
         <div className="fixed inset-x-0 bottom-0 z-[1200] max-h-[45vh] overflow-auto border-t border-white/10 bg-[#0f172a]/95 p-3 md:inset-x-auto md:right-4 md:top-14 md:w-[min(26rem,calc(100vw-2rem))] md:rounded-xl md:border">
           <div className="text-xs font-semibold text-slate-200">พื้นที่เรียงตามจำนวน leads</div>
-          <div className="mt-2 grid grid-cols-1 gap-2 text-xs md:grid-cols-1">
+          <div className="mt-2 grid grid-cols-1 gap-2 text-xs">
             {filteredAreas.slice(0, 50).map((area) => (
               <div key={area.area} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2">
                 <span className="text-slate-200">{area.area}</span>
@@ -201,22 +266,51 @@ export default function TwinPage() {
               <div className="text-slate-400">ไม่พบรายการ</div>
             )}
           </div>
+          <div className="mt-3 text-xs font-semibold text-slate-200">สถานี AQI/Weather ที่โหลด</div>
+          <div className="mt-2 max-h-32 overflow-auto text-xs">
+            {(observations?.bkkStations ?? []).slice(0, 20).map((s, idx) => (
+              <div key={idx} className="border-b border-white/5 py-1">
+                <span className="text-slate-100">{s.name}</span>
+                <span className="text-slate-400"> AQI {s.aqi} · PM2.5 {s.pm25Value}</span>
+              </div>
+            ))}
+            {(observations?.bkkWeather ?? []).length > 0 && (
+              <div className="mt-2 text-slate-200">Weather stations</div>
+            )}
+            {(observations?.bkkWeather ?? []).slice(0, 10).map((s, idx) => (
+              <div key={idx} className="border-b border-white/5 py-1">
+                <span className="text-slate-100">{s.name}</span>
+                <span className="text-slate-400"> {s.temp}°C · {s.humidity}%</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
   )
 }
 
-function renderAreas(Cesium: any, viewer: any, areas: Area[]) {
+function renderAll(
+  Cesium: any,
+  viewer: any,
+  meta: Meta | null,
+  observations: ObservationResponse | null,
+  showAqi: boolean,
+  showWeather: boolean,
+  selectedCategory: string,
+) {
   viewer.entities.removeAll()
 
-  const maxCount = Math.max(...areas.map(a => a.count), 1)
+  const maxCount = Math.max(...(meta?.areas?.map(a => a.count) ?? [1]), 1)
+  const areas = (meta?.areas ?? []).filter((area) => {
+    if (!selectedCategory) return true
+    return (meta?.categories?.includes(selectedCategory) ?? false)
+  })
 
   for (const area of areas) {
     if (!Number.isFinite(area.lat) || !Number.isFinite(area.lng)) continue
-
     const normalized = area.count / maxCount
-    const radius = 180 + normalized * 1200
+    const radius = 120 + normalized * 800
 
     viewer.entities.add({
       position: Cesium.Cartesian3.fromDegrees(area.lng, area.lat),
@@ -226,15 +320,15 @@ function renderAreas(Cesium: any, viewer: any, areas: Area[]) {
         semiMajorAxis: radius,
         semiMinorAxis: radius * 0.85,
         height: 0,
-        material: Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.35),
+        material: Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.25),
         outline: true,
-        outlineColor: Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.8),
+        outlineColor: Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.7),
         outlineWidth: 1,
         heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
       },
       label: {
         text: `${area.area}: ${area.count}`,
-        font: '13px sans-serif',
+        font: '12px sans-serif',
         style: Cesium.LabelStyle.FILL_AND_OUTLINE,
         outlineWidth: 2,
         verticalOrigin: Cesium.VerticalOrigin.TOP,
@@ -244,6 +338,82 @@ function renderAreas(Cesium: any, viewer: any, areas: Area[]) {
       },
     })
   }
+
+  if (showAqi) {
+    for (const s of observations?.bkkStations ?? []) {
+      const color = aqiColor(s.aqi)
+      viewer.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(s.lng, s.lat),
+        name: `${s.name} (AQI)`,
+        description: `<b>${s.name}</b><br/>AQI ${s.aqi}<br/>PM2.5 ${s.pm25Value}<br/>${s.aqiParam ?? ''}`,
+        billboard: {
+          image: createPinImage(color, 'A'),
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          scaleByDistance: new Cesium.NearFarScalar(1.5e2, 1.1, 1.2e7, 0.3),
+          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+        },
+      })
+    }
+  }
+
+  if (showWeather) {
+    for (const s of observations?.bkkWeather ?? []) {
+      viewer.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(s.lng, s.lat),
+        name: `${s.name} (Weather)`,
+        description: `<b>${s.name}</b><br/>${s.temp ?? '--'}°C<br/>${s.humidity ?? '--'}% humidity<br/>${s.windSpeed ?? '--'} km/h`,
+        billboard: {
+          image: createPinImage('#22c55e', 'W'),
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          scaleByDistance: new Cesium.NearFarScalar(1.5e2, 1.1, 1.2e7, 0.3),
+          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+        },
+      })
+    }
+  }
+}
+
+function aqiColor(aqi: number): string {
+  if (aqi < 0) return '#94a3b8'
+  if (aqi <= 50) return '#22c55e'
+  if (aqi <= 100) return '#eab308'
+  if (aqi <= 150) return '#f97316'
+  if (aqi <= 200) return '#ef4444'
+  return '#7f1d1d'
+}
+
+function createPinImage(color: string, letter: string) {
+  const size = 64
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')!
+
+  ctx.clearRect(0, 0, size, size)
+  ctx.beginPath()
+  ctx.moveTo(size / 2, size - 6)
+  ctx.bezierCurveTo(size / 2, size / 2, 6, size / 2, 6, 16)
+  ctx.bezierCurveTo(6, 6, size - 6, 6, size - 6, 16)
+  ctx.bezierCurveTo(size - 6, size / 2, size / 2, size / 2, size / 2, size - 6)
+  ctx.closePath()
+
+  ctx.fillStyle = color
+  ctx.fill()
+  ctx.lineWidth = 2
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)'
+  ctx.stroke()
+
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath()
+  ctx.arc(size / 2, size - 14, 7, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#0b1220'
+  ctx.font = 'bold 11px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(letter, size / 2, size - 14)
+
+  return canvas.toDataURL('image/png')
 }
 
 function injectCesiumCDN() {
