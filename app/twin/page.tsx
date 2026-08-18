@@ -158,6 +158,14 @@ export default function TwinPage() {
         selectionIndicator: true,
       })
 
+      viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#05070a')
+      viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#0a0f1a')
+      viewer.scene.globe.show = false
+      viewer.scene.skyBox.show = false
+      viewer.scene.sun.show = false
+      viewer.scene.moon.show = false
+      viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#02040a')
+
       cesiumViewer.current = viewer
 
       viewer.camera.setView({
