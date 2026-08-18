@@ -1,0 +1,260 @@
+[
+  {
+    "area": "Bang Bon",
+    "count": 20,
+    "lat": 13.6656,
+    "lng": 100.3728
+  },
+  {
+    "area": "Bang Khae",
+    "count": 125,
+    "lat": 13.7089,
+    "lng": 100.3728
+  },
+  {
+    "area": "Bang Kho Laem",
+    "count": 45,
+    "lat": 13.6969,
+    "lng": 100.4969
+  },
+  {
+    "area": "Bang Khun Thian",
+    "count": 6,
+    "lat": 13.6628,
+    "lng": 100.4356
+  },
+  {
+    "area": "Bang Na",
+    "count": 14,
+    "lat": 13.6828,
+    "lng": 100.4356
+  },
+  {
+    "area": "Bang Rak",
+    "count": 122,
+    "lat": 13.7284,
+    "lng": 100.5234
+  },
+  {
+    "area": "Bang Sue",
+    "count": 66,
+    "lat": 13.8019,
+    "lng": 100.5378
+  },
+  {
+    "area": "Bangkok Noi",
+    "count": 10,
+    "lat": 13.7519,
+    "lng": 100.4819
+  },
+  {
+    "area": "Bangkok Yai",
+    "count": 115,
+    "lat": 13.7189,
+    "lng": 100.4728
+  },
+  {
+    "area": "Bueng Kum",
+    "count": 154,
+    "lat": 13.7856,
+    "lng": 100.6728
+  },
+  {
+    "area": "Chatuchak",
+    "count": 285,
+    "lat": 13.8039,
+    "lng": 100.5539
+  },
+  {
+    "area": "Din Daeng",
+    "count": 75,
+    "lat": 13.7656,
+    "lng": 100.5519
+  },
+  {
+    "area": "Don Mueang",
+    "count": 242,
+    "lat": 13.9119,
+    "lng": 100.5939
+  },
+  {
+    "area": "Dusit",
+    "count": 83,
+    "lat": 13.7669,
+    "lng": 100.5156
+  },
+  {
+    "area": "Huai Khwang",
+    "count": 494,
+    "lat": 13.7593,
+    "lng": 100.5796
+  },
+  {
+    "area": "Khan Na Yao",
+    "count": 145,
+    "lat": 13.8256,
+    "lng": 100.6769
+  },
+  {
+    "area": "Khlong San",
+    "count": 88,
+    "lat": 13.7189,
+    "lng": 100.5089
+  },
+  {
+    "area": "Khlong Toei",
+    "count": 132,
+    "lat": 13.7269,
+    "lng": 100.5919
+  },
+  {
+    "area": "Lak Si",
+    "count": 46,
+    "lat": 13.8839,
+    "lng": 100.5789
+  },
+  {
+    "area": "Lat Krabang",
+    "count": 32,
+    "lat": 13.7234,
+    "lng": 100.7569
+  },
+  {
+    "area": "Lat Phrao",
+    "count": 476,
+    "lat": 13.8039,
+    "lng": 100.5728
+  },
+  {
+    "area": "Min Buri",
+    "count": 182,
+    "lat": 13.8134,
+    "lng": 100.7492
+  },
+  {
+    "area": "Nong Chok",
+    "count": 84,
+    "lat": 13.7369,
+    "lng": 100.8628
+  },
+  {
+    "area": "Nong Khaem",
+    "count": 54,
+    "lat": 13.6878,
+    "lng": 100.3519
+  },
+  {
+    "area": "Pathum Wan",
+    "count": 77,
+    "lat": 13.7458,
+    "lng": 100.5343
+  },
+  {
+    "area": "Phasi Charoen",
+    "count": 53,
+    "lat": 13.7089,
+    "lng": 100.4378
+  },
+  {
+    "area": "Phaya Thai",
+    "count": 100,
+    "lat": 13.7656,
+    "lng": 100.5378
+  },
+  {
+    "area": "Phra Khanong",
+    "count": 82,
+    "lat": 13.7189,
+    "lng": 100.5848
+  },
+  {
+    "area": "Phra Nakhon",
+    "count": 637,
+    "lat": 13.7563,
+    "lng": 100.5018
+  },
+  {
+    "area": "Pom Prap Sattru Phai",
+    "count": 54,
+    "lat": 13.7525,
+    "lng": 100.5089
+  },
+  {
+    "area": "Prawet",
+    "count": 146,
+    "lat": 13.7369,
+    "lng": 100.6939
+  },
+  {
+    "area": "Rat Burana",
+    "count": 152,
+    "lat": 13.6728,
+    "lng": 100.5089
+  },
+  {
+    "area": "Ratchathewi",
+    "count": 62,
+    "lat": 13.7569,
+    "lng": 100.5378
+  },
+  {
+    "area": "Samphanthawong",
+    "count": 55,
+    "lat": 13.7314,
+    "lng": 100.5139
+  },
+  {
+    "area": "Saphan Sung",
+    "count": 193,
+    "lat": 13.7728,
+    "lng": 100.6856
+  },
+  {
+    "area": "Sathon",
+    "count": 8,
+    "lat": 13.7206,
+    "lng": 100.5289
+  },
+  {
+    "area": "Suan Luang",
+    "count": 50,
+    "lat": 13.7356,
+    "lng": 100.6519
+  },
+  {
+    "area": "Taling Chan",
+    "count": 251,
+    "lat": 13.7289,
+    "lng": 100.4569
+  },
+  {
+    "area": "Thawi Watthana",
+    "count": 42,
+    "lat": 13.7589,
+    "lng": 100.3628
+  },
+  {
+    "area": "Thung Khru",
+    "count": 61,
+    "lat": 13.5919,
+    "lng": 100.4356
+  },
+  {
+    "area": "Wang Thonglang",
+    "count": 112,
+    "lat": 13.7569,
+    "lng": 100.6839
+  },
+  {
+    "area": "Watthana",
+    "count": 71,
+    "lat": 13.7369,
+    "lng": 100.5856
+  },
+  {
+    "area": "Yan Nawa",
+    "count": 80,
+    "lat": 13.7019,
+    "lng": 100.5434
+  }
+]

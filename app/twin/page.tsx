@@ -11,10 +11,18 @@ type Lead = {
   source?: string
 }
 
+type Area = {
+  area: string
+  count: number
+  lat?: number
+  lng?: number
+}
+
 type Meta = {
   total: number
-  areas: string[]
+  areas: Area[]
   categories: string[]
+  leads: Lead[]
 }
 
 export default function TwinPage() {
@@ -23,22 +31,9 @@ export default function TwinPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [meta, setMeta] = useState<Meta | null>(null)
-  const [leads, setLeads] = useState<Lead[]>([])
-  const [selectedArea, setSelectedArea] = useState<string>('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [search, setSearch] = useState('')
   const [panelOpen, setPanelOpen] = useState(false)
-
-  const filtered = leads.filter((lead) => {
-    const matchesArea = !selectedArea || lead.area === selectedArea
-    const matchesCategory = !selectedCategory || lead.category === selectedCategory
-    const matchesSearch = !search || 
-      lead.name?.toLowerCase().includes(search.toLowerCase()) ||
-      lead.address?.toLowerCase().includes(search.toLowerCase()) ||
-      lead.area?.toLowerCase().includes(search.toLowerCase()) ||
-      lead.category?.toLowerCase().includes(search.toLowerCase())
-    return matchesArea && matchesCategory && matchesSearch
-  })
 
   useEffect(() => {
     let cancelled = false
@@ -48,10 +43,7 @@ export default function TwinPage() {
         const res = await fetch('/api/leads', { cache: 'no-store' })
         const json = await res.json()
         if (!json.ok) throw new Error(json.error || 'leads api failed')
-        if (!cancelled) {
-          setMeta(json)
-          setLeads(json.leads)
-        }
+        if (!cancelled) setMeta(json)
       } catch (err: any) {
         console.error('leads load error', err)
         if (!cancelled) setError(err?.message ?? 'unknown')
@@ -102,10 +94,10 @@ export default function TwinPage() {
       cesiumViewer.current = viewer
 
       viewer.camera.setView({
-        destination: Cesium.Cartesian3.fromDegrees(100.5, 13.75, 45000),
+        destination: Cesium.Cartesian3.fromDegrees(100.5168, 13.7546, 50000),
         orientation: {
           heading: Cesium.Math.toRadians(0),
-          pitch: Cesium.Math.toRadians(-45),
+          pitch: Cesium.Math.toRadians(-50),
           roll: 0,
         },
       })
@@ -118,6 +110,7 @@ export default function TwinPage() {
         console.warn('OSM Buildings unavailable', osmErr)
       }
 
+      renderAreas(Cesium, viewer, meta?.areas ?? [])
       if (!cancelled) setLoading(false)
     }
 
@@ -129,13 +122,19 @@ export default function TwinPage() {
         try { cesiumViewer.current.destroy() } catch {}
       }
     }
-  }, [])
+  }, [meta])
 
-  const areaCounts = new Map<string, number>()
-  for (const lead of filtered) {
-    areaCounts.set(lead.area, (areaCounts.get(lead.area) || 0) + 1)
-  }
-  const sortedAreas = Array.from(areaCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 50)
+  const filteredAreas = meta?.areas?.filter((area) => {
+    const matchesCategory = !selectedCategory || (meta.leads || []).some(
+      lead => lead.area === area.area && lead.category === selectedCategory
+    )
+    const matchesSearch = !search || 
+      area.area.toLowerCase().includes(search.toLowerCase())
+    return matchesCategory && matchesSearch
+  }) ?? []
+
+  const topCategories = meta?.categories ?? []
+  const totalFiltered = filteredAreas.reduce((sum, area) => sum + area.count, 0)
 
   return (
     <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[#0b1220] text-slate-100">
@@ -146,32 +145,22 @@ export default function TwinPage() {
           </div>
           <div>
             <div className="cinematic-badge text-sky-300">Digital Twin</div>
-            <div className="cinematic-title text-xl font-bold">Cesium 3D Twin</div>
+            <div className="cinematic-title text-xl font-bold">Bangkok 3D Twin</div>
           </div>
           <div className="ml-auto hidden gap-3 md:flex">
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="ค้นหา"
+              placeholder="ค้นหาพื้นที่"
               className="w-64 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-100 placeholder-slate-400 outline-none"
             />
-            <select
-              value={selectedArea}
-              onChange={(e) => setSelectedArea(e.target.value)}
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-100 outline-none"
-            >
-              <option value="">ทุกพื้นที่</option>
-              {meta?.areas?.map((area) => (
-                <option key={area} value={area}>{area}</option>
-              ))}
-            </select>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
               className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-100 outline-none"
             >
               <option value="">ทุกหมวดหมู่</option>
-              {meta?.categories?.map((cat) => (
+              {topCategories.map((cat) => (
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
@@ -182,7 +171,7 @@ export default function TwinPage() {
               {panelOpen ? 'ปิดรายการ' : 'เปิดรายการ'}
             </button>
             <span className="text-xs text-slate-300">
-              {filtered.length}/{meta?.total ?? 0} รายการ
+              {totalFiltered}/{meta?.total ?? 0} รายการ
             </span>
           </div>
         </div>
@@ -202,33 +191,59 @@ export default function TwinPage() {
         <div className="fixed inset-x-0 bottom-0 z-[1200] max-h-[45vh] overflow-auto border-t border-white/10 bg-[#0f172a]/95 p-3 md:inset-x-auto md:right-4 md:top-14 md:w-[min(26rem,calc(100vw-2rem))] md:rounded-xl md:border">
           <div className="text-xs font-semibold text-slate-200">พื้นที่เรียงตามจำนวน leads</div>
           <div className="mt-2 grid grid-cols-1 gap-2 text-xs md:grid-cols-1">
-            {sortedAreas.map(([area, count]) => (
-              <div key={area} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-                <span className="text-slate-200">{area}</span>
-                <span className="text-slate-300">{count}</span>
+            {filteredAreas.slice(0, 50).map((area) => (
+              <div key={area.area} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                <span className="text-slate-200">{area.area}</span>
+                <span className="text-slate-300">{area.count}</span>
               </div>
             ))}
-            {sortedAreas.length === 0 && (
+            {filteredAreas.length === 0 && (
               <div className="text-slate-400">ไม่พบรายการ</div>
-            )}
-          </div>
-
-          <div className="mt-3 text-xs font-semibold text-slate-200">รายการตัวอย่าง</div>
-          <div className="mt-2 max-h-32 overflow-auto text-xs">
-            {filtered.slice(0, 20).map((lead, idx) => (
-              <div key={idx} className="border-b border-white/5 py-1">
-                <span className="text-slate-100">{lead.name}</span>
-                <span className="text-slate-400"> — {lead.area} · {lead.category}</span>
-              </div>
-            ))}
-            {filtered.length > 20 && (
-              <div className="text-slate-400">และอีก {filtered.length - 20} รายการ…</div>
             )}
           </div>
         </div>
       )}
     </div>
   )
+}
+
+function renderAreas(Cesium: any, viewer: any, areas: Area[]) {
+  viewer.entities.removeAll()
+
+  const maxCount = Math.max(...areas.map(a => a.count), 1)
+
+  for (const area of areas) {
+    if (!Number.isFinite(area.lat) || !Number.isFinite(area.lng)) continue
+
+    const normalized = area.count / maxCount
+    const radius = 180 + normalized * 1200
+
+    viewer.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(area.lng, area.lat),
+      name: area.area,
+      description: `<b>${area.area}</b><br/>${area.count} รายการ`,
+      ellipse: {
+        semiMajorAxis: radius,
+        semiMinorAxis: radius * 0.85,
+        height: 0,
+        material: Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.35),
+        outline: true,
+        outlineColor: Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.8),
+        outlineWidth: 1,
+        heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+      },
+      label: {
+        text: `${area.area}: ${area.count}`,
+        font: '13px sans-serif',
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        outlineWidth: 2,
+        verticalOrigin: Cesium.VerticalOrigin.TOP,
+        pixelOffset: new Cesium.Cartesian2(0, 12),
+        heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+        scaleByDistance: new Cesium.NearFarScalar(1.5e2, 1.0, 1.2e7, 0.4),
+      },
+    })
+  }
 }
 
 function injectCesiumCDN() {
