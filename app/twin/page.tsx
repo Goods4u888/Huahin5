@@ -66,38 +66,31 @@ export default function TwinPage() {
   const [showAqi, setShowAqi] = useState(true)
   const [showWeather, setShowWeather] = useState(true)
   const [clock, setClock] = useState('')
+  const [lastUpdated, setLastUpdated] = useState<string>('')
+  const [refreshing, setRefreshing] = useState(false)
+
+  const refresh = async () => {
+    if (refreshing) return
+    setRefreshing(true)
+    try {
+      const [leadsRes, obsRes] = await Promise.all([
+        fetch('/api/leads', { cache: 'no-store' }),
+        fetch('/api/observations', { cache: 'no-store' }),
+      ])
+      const leadsJson = await leadsRes.json()
+      const obsJson = await obsRes.json()
+      if (leadsJson.ok) setMeta(leadsJson)
+      if (obsJson.ok) setObservations(obsJson)
+      setLastUpdated(new Date().toLocaleString('th-TH'))
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   useEffect(() => {
-    let cancelled = false
-
-    const load = async () => {
-      try {
-        const [leadsRes, obsRes] = await Promise.all([
-          fetch('/api/leads', { cache: 'no-store' }),
-          fetch('/api/observations', { cache: 'no-store' }),
-        ])
-        const leadsJson = await leadsRes.json()
-        const obsJson = await obsRes.json()
-        if (!leadsJson.ok) throw new Error(leadsJson.error || 'leads api failed')
-        if (!obsJson.ok) throw new Error(obsJson.error || 'observations api failed')
-        if (!cancelled) {
-          setMeta(leadsJson)
-          setObservations(obsJson)
-        }
-      } catch (err: any) {
-        console.error('load error', err)
-        if (!cancelled) setError(err?.message ?? 'unknown')
-      }
-    }
-
-    load()
-
-    return () => {
-      cancelled = true
-      if (cesiumViewer.current) {
-        try { cesiumViewer.current.destroy() } catch {}
-      }
-    }
+    refresh()
+    const id = setInterval(refresh, 30000)
+    return () => clearInterval(id)
   }, [])
 
   useEffect(() => {
@@ -234,11 +227,21 @@ export default function TwinPage() {
             >
               {panelOpen ? 'ปิดรายการ' : 'เปิดรายการ'}
             </button>
+            <button
+              onClick={refresh}
+              disabled={refreshing}
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs hover:bg-white/10 disabled:opacity-60"
+            >
+              {refreshing ? 'กำลังอัปเดต…' : 'อัปเดต'}
+            </button>
             <span className="text-xs text-slate-300">
               {totalFiltered}/{meta?.total ?? 0} รายการ
             </span>
           </div>
-          <div className="text-xs text-slate-400">{clock}</div>
+          <div className="text-right">
+            <div className="text-xs text-slate-400">{clock}</div>
+            {lastUpdated && <div className="text-[10px] text-slate-500">อัปเดต {lastUpdated}</div>}
+          </div>
         </div>
       </div>
 
