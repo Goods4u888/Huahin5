@@ -68,6 +68,27 @@ export default function TwinPage() {
   const [clock, setClock] = useState('')
   const [lastUpdated, setLastUpdated] = useState<string>('')
   const [refreshing, setRefreshing] = useState(false)
+  const [selectedArea, setSelectedArea] = useState<string | null>(null)
+  const [selectedAreaCount, setSelectedAreaCount] = useState<number>(0)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [areaLeads, setAreaLeads] = useState<any[]>([])
+  const [areaLoading, setAreaLoading] = useState(false)
+
+  const openArea = async (area: string) => {
+    setSelectedArea(area)
+    setDetailOpen(true)
+    setAreaLoading(true)
+    try {
+      const res = await fetch(`/api/leads/area?area=${encodeURIComponent(area)}`, { cache: 'no-store' })
+      const json = await res.json()
+      if (json.ok) {
+        setAreaLeads(json.leads)
+        setSelectedAreaCount(json.total)
+      }
+    } finally {
+      setAreaLoading(false)
+    }
+  }
 
   const refresh = async () => {
     if (refreshing) return
@@ -107,6 +128,7 @@ export default function TwinPage() {
 
   useEffect(() => {
     let cancelled = false
+    const clickHandler = { current: null as any }
 
     const initCesium = async () => {
       if (!cesiumContainer.current) return
@@ -120,7 +142,7 @@ export default function TwinPage() {
 
       const Cesium = (window as any).Cesium
       Cesium.Ion.defaultAccessToken =
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUxNy1mMWZiLTQzYjYtYTQ0OS1kMWFjYmFkNjc5YzciLCJpZCI6NTc3MzMsImlhdCI6MTYyNzg0NTE4Mn0.XcKpgANiY19MC4bdFUXMVEBToBmqS8kuYpUlxJHv1ew'
+        'eyJhbG...v1ew'
 
       const viewer = new Cesium.Viewer(cesiumContainer.current!, {
         terrainProvider: new Cesium.EllipsoidTerrainProvider(),
@@ -154,6 +176,20 @@ export default function TwinPage() {
         console.warn('OSM Buildings unavailable', osmErr)
       }
 
+      const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
+      clickHandler.current = handler
+      handler.setInputAction((movement: any) => {
+        if (cancelled) return
+        const picked = viewer.scene.pick(movement.position)
+        if (picked && picked.id && typeof picked.id.name === 'string') {
+          const name = String(picked.id.name)
+          const area = meta?.areas?.find(a => a.area === name)
+          if (area) {
+            openArea(area.area)
+          }
+        }
+      }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+
       renderAll(Cesium, viewer, meta, observations, showAqi, showWeather, selectedCategory)
 
       if (!cancelled) setLoading(false)
@@ -163,6 +199,9 @@ export default function TwinPage() {
 
     return () => {
       cancelled = true
+      if (clickHandler.current) {
+        try { clickHandler.current.destroy() } catch {}
+      }
       if (cesiumViewer.current) {
         try { cesiumViewer.current.destroy() } catch {}
       }
@@ -260,10 +299,14 @@ export default function TwinPage() {
           <div className="text-xs font-semibold text-slate-200">พื้นที่เรียงตามจำนวน leads</div>
           <div className="mt-2 grid grid-cols-1 gap-2 text-xs">
             {filteredAreas.slice(0, 50).map((area) => (
-              <div key={area.area} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+              <button
+                key={area.area}
+                onClick={() => openArea(area.area)}
+                className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left hover:bg-white/10"
+              >
                 <span className="text-slate-200">{area.area}</span>
                 <span className="text-slate-300">{area.count}</span>
-              </div>
+              </button>
             ))}
             {filteredAreas.length === 0 && (
               <div className="text-slate-400">ไม่พบรายการ</div>
@@ -289,8 +332,63 @@ export default function TwinPage() {
           </div>
         </div>
       )}
+
+      {detailOpen && selectedArea && (
+        <div className="fixed inset-x-0 bottom-0 z-[1200] max-h-[55vh] overflow-auto border-t border-white/10 bg-[#0f172a]/95 p-4 md:inset-x-auto md:right-4 md:top-14 md:w-[min(32rem,calc(100vw-2rem))] md:rounded-xl md:border">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-slate-100">{selectedArea}</div>
+              <div className="text-xs text-slate-400">{selectedAreaCount} รายการในพื้นที่นี้</div>
+            </div>
+            <button
+              onClick={() => setDetailOpen(false)}
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs hover:bg-white/10"
+            >
+              ปิด
+            </button>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-xs md:grid-cols-6">
+            <Stat label="Restaurant" value={categoryCount(areaLeads, 'Restaurant')} />
+            <Stat label="Cafe" value={categoryCount(areaLeads, 'Cafe')} />
+            <Stat label="Hotel" value={categoryCount(areaLeads, 'Hotel')} />
+            <Stat label="Clinic" value={categoryCount(areaLeads, 'Clinic')} />
+            <Stat label="Spa" value={categoryCount(areaLeads, 'Spa')} />
+            <Stat label="Shop" value={categoryCount(areaLeads, 'Shop')} />
+          </div>
+          <div className="mt-3 text-xs font-semibold text-slate-200">รายการตัวอย่าง</div>
+          <div className="mt-2 max-h-40 overflow-auto text-xs">
+            {areaLoading ? (
+              <div className="text-slate-400">กำลังโหลดรายการ…</div>
+            ) : (
+              areaLeads.slice(0, 30).map((lead, idx) => (
+                <div key={idx} className="border-b border-white/5 py-1">
+                  <span className="text-slate-100">{lead.name}</span>
+                  <span className="text-slate-400"> · {lead.category}</span>
+                  {lead.phone && <span className="text-slate-500"> · {lead.phone}</span>}
+                </div>
+              ))
+            )}
+            {!areaLoading && areaLeads.length > 30 && (
+              <div className="text-slate-400">และอีก {areaLeads.length - 30} รายการ…</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+      <div className="text-slate-400">{label}</div>
+      <div className="text-slate-100">{value}</div>
+    </div>
+  )
+}
+
+function categoryCount(leads: any[], category: string): number {
+  return leads.filter(lead => lead.category === category).length
 }
 
 function renderAll(
